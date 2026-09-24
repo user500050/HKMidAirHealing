@@ -19,13 +19,6 @@ namespace MidAirHealing
 		private readonly Dictionary<FsmState, FsmStateAction[]> recoveryOriginals =
 			new Dictionary<FsmState, FsmStateAction[]>();
 
-		private readonly Dictionary<
-			FsmTransition,
-			(string Name, FsmState State, FsmState Replacement)> focusButtonOriginals =
-			new Dictionary<
-				FsmTransition,
-				(string Name, FsmState State, FsmState Replacement)>();
-
 		private PlayMakerFSM patchedSpellControl;
 
 		private Rigidbody2D hoverBody;
@@ -78,8 +71,6 @@ namespace MidAirHealing
 			if (patchedSpellControl != null
 				&& patchedSpellControl.Fsm.ActiveStateName != "Inactive")
 				return;
-
-			RestoreFocusOnlyButton();
 
 			foreach (var entry in recoveryOriginals)
 				entry.Key.Actions = entry.Value;
@@ -212,29 +203,14 @@ namespace MidAirHealing
 				return;
 			}
 
-			bool inspect = UnityEngine.Input.GetKeyDown(KeyCode.F7);
-
-			bool alreadyPatched =
-				patchedSpellControl != null
-				&& patchedSpellControl.gameObject == self.gameObject;
-
-			if (alreadyPatched && !inspect)
+			if (patchedSpellControl != null
+				&& patchedSpellControl.gameObject == self.gameObject)
 				return;
 
 			foreach (var fsm in self.GetComponents<PlayMakerFSM>())
 			{
 				if (fsm.FsmName != "Spell Control")
 					continue;
-
-				if (inspect)
-				{
-					DumpState(fsm, "Inactive");
-					DumpState(fsm, "Button Down");
-					DumpState(fsm, "Can Focus?");
-				}
-
-				if (alreadyPatched)
-					return;
 
 				if (fsm.Fsm.ActiveStateName != "Inactive")
 					return;
@@ -244,10 +220,7 @@ namespace MidAirHealing
 				ShortenRecovery(fsm, "Focus Cancel", expectedWaits: 0);
 				ShortenRecovery(fsm, "Focus Cancel 2", expectedWaits: 0);
 
-				ApplyFocusOnlyButton(fsm);
-
 				patchedSpellControl = fsm;
-
 				Log("Automatic recovery setup finished.");
 				return;
 			}
@@ -395,77 +368,6 @@ namespace MidAirHealing
 			}
 
 			hoverBody = null;
-		}
-
-		private void ApplyFocusOnlyButton(PlayMakerFSM component)
-		{
-			var inactive = component.Fsm.GetState("Inactive");
-			var buttonDown = component.Fsm.GetState("Button Down");
-			var focus = component.Fsm.GetState("Can Focus?");
-
-			if (inactive == null || buttonDown == null || focus == null)
-			{
-				LogError("Focus-only: required states not found.");
-				return;
-			}
-
-			FsmTransition pressed = null;
-
-			foreach (var transition in inactive.Transitions)
-			{
-				if (transition.EventName != "BUTTON DOWN")
-					continue;
-
-				if (pressed != null)
-				{
-					LogError("Focus-only: duplicate BUTTON DOWN transition.");
-					return;
-				}
-
-				pressed = transition;
-			}
-
-			if (pressed == null)
-			{
-				LogError("Focus-only: BUTTON DOWN transition not found.");
-				return;
-			}
-
-			if (focusButtonOriginals.ContainsKey(pressed))
-				return;
-
-			if (pressed.ToState != buttonDown.Name)
-			{
-				LogError("Focus-only: unexpected BUTTON DOWN target.");
-				return;
-			}
-
-			focusButtonOriginals.Add(
-				pressed,
-				(pressed.ToState, pressed.ToFsmState, focus));
-
-			pressed.ToState = focus.Name;
-			pressed.ToFsmState = focus;
-
-			Log("Focus-only button enabled.");
-		}
-
-		private void RestoreFocusOnlyButton()
-		{
-			foreach (var entry in focusButtonOriginals)
-			{
-				var transition = entry.Key;
-				var saved = entry.Value;
-
-				if (transition.ToState == saved.Replacement.Name
-					&& transition.ToFsmState == saved.Replacement)
-				{
-					transition.ToState = saved.Name;
-					transition.ToFsmState = saved.State;
-				}
-			}
-
-			focusButtonOriginals.Clear();
 		}
 	}
 }
