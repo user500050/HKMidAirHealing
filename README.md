@@ -8,6 +8,6 @@ Allows you to heal in mid-air (as well as on water).
 
 ### Installation
 1. Download the latest [release](https://github.com/user500050/HKMidAirHealing/releases)
-2. Extract the archive to the following directory:
+2. Extract the archive to the following directory with the “Create subfolder” option enabled:
     * `[Game Install Directory]/hollow_knight_Data/Managed/Mods/`
 3. If the `Mods` folder doesn't exist, create one
